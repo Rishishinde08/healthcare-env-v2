@@ -1,188 +1,111 @@
 import os
 import sys
-
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import time
 
-from env import HealthcareEnv
+# 🔥 FORCE ROOT PATH (VERY IMPORTANT)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE_DIR)
 
-from openai import OpenAI
-
-
-
-# =======================
-
-# OpenAI Client (Required)
-
-# =======================
-
+# 🔥 SAFE IMPORT (FINAL FIX)
 try:
-
-    client = OpenAI(
-
-        base_url=os.getenv("API_BASE_URL"),
-
-        api_key=os.getenv("HF_TOKEN")
-
-    )
-
-except Exception:
-
-    client = None
+    from env import HealthcareEnv
+except Exception as e:
+    print("IMPORT ERROR:", str(e))
+    raise e
 
 
-
+# =======================
+# CONFIG
+# =======================
 MODEL_NAME = os.getenv("MODEL_NAME", "dummy-model")
 
 
-
-
-
 # =======================
-
 # Logging Functions
-
 # =======================
-
 def log_start(task, env, model):
-
     print(f"[START] task={task} env={env} model={model}")
 
 
-
 def log_step(step, action, reward, done):
-
     print(f"[STEP] step={step} action={action} reward={reward:.2f} done={str(done).lower()} error=null")
 
 
-
 def log_end(success, steps, score, rewards):
-
     rewards_str = ",".join([f"{r:.2f}" for r in rewards])
-
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={rewards_str}")
 
 
-
-
-
 # =======================
-
 # Agent Logic
-
 # =======================
-
 def agent(observation):
+    try:
+        if isinstance(observation, dict):
+            observation = observation.get("result", "")
 
-    if isinstance(observation, dict):
-     observation = observation.get("result", "")
+        obs = str(observation).lower()
 
-    obs = observation.lower()
+        if "fever" in obs or "cough" in obs:
+            return {"disease": "flu", "hospital": "general", "urgency": "low"}
 
+        elif "chest" in obs or "breath" in obs:
+            return {"disease": "heart issue", "hospital": "cardiology", "urgency": "high"}
 
+        elif "sugar" in obs or "vision" in obs:
+            return {"disease": "diabetes", "hospital": "endocrinologist", "urgency": "medium"}
 
-    if "fever" in obs or "cough" in obs:
+        else:
+            return {"disease": "general issue", "hospital": "general", "urgency": "low"}
 
-        return {"disease": "flu", "hospital": "general", "urgency": "low"}
-
-
-
-    elif "chest pain" in obs or "shortness of breath" in obs:
-
-        return {"disease": "heart issue", "hospital": "cardiology", "urgency": "high"}
-
-
-
-    elif "sugar" in obs or "blurred vision" in obs:
-
-        return {"disease": "diabetes", "hospital": "endocrinologist", "urgency": "medium"}
-
-
-
-    else:
-
+    except Exception as e:
+        print("AGENT ERROR:", str(e))
         return {"disease": "general issue", "hospital": "general", "urgency": "low"}
 
 
-
-
-
 # =======================
-
-# MAIN (IMPORTANT FIX)
-
+# MAIN
 # =======================
-
 def main():
+    try:
+        env = HealthcareEnv()
 
-    env = HealthcareEnv()
+        log_start("healthcare", "healthcare_env", MODEL_NAME)
 
+        obs = env.reset()
+        rewards = []
 
+        step = 1
 
-    log_start("healthcare", "healthcare_env", MODEL_NAME)
+        # 🔥 SAFE extraction
+        observation = obs.get("observation", {})
 
+        action = agent(observation)
 
+        result = env.step(action)
 
-    obs = env.reset()
+        reward = float(result.get("reward", 0))
+        done = bool(result.get("done", False))
 
-    rewards = []
+        rewards.append(reward)
 
+        log_step(step, action, reward, done)
 
+        score = sum(rewards)
+        success = score >= 0.7
 
-    step = 1
+        log_end(success, step, score, rewards)
 
-    observation = obs["observation"]
-
-
-
-    action = agent(observation)
-
-
-
-    result = env.step(action)
-
-
-
-    reward = result["reward"]
-
-    done = result["done"]
-
-
-
-    rewards.append(reward)
-
-
-
-    log_step(step, action, reward, done)
-
-
-
-    score = sum(rewards)
-
-    success = score >= 0.7
-
-
-
-    log_end(success, step, score, rewards)
-
-
-
+    except Exception as e:
+        print("MAIN ERROR:", str(e))
 
 
 # =======================
-
-# ENTRY POINT FIX 🔥
-
+# ENTRY POINT
 # =======================
-
 if __name__ == "__main__":
-
     main()
 
-
-
-    # Keep container alive
-
+    # keep container alive
     while True:
-
         time.sleep(60)
