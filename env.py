@@ -13,3 +13,7 @@ class HealthcareEnv:
 
     def state(self):
         return self.env.state
+
+
+# IMPORTANT FIX
+HealthcareEnv = HealthcareEnvironment
